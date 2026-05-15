@@ -76,17 +76,19 @@
   <!-- Section 1: Abstract -->
   <h2 id="abstract">1. Abstract</h2>
   <p>
-    Recent neural audio codecs have achieved impressive reconstruction quality, typically relying on quantization 
-    methods such as Residual Vector Quantization (RVQ), Vector Quantization (VQ) and Finite Scalar Quantization (FSQ). 
-    However, these quantization techniques limit the geometric structure of the latent space, make it harder to capture 
-    correlations between features leading to inefficiency in representation learning, codebook utilization and token rate. 
-    In this paper we introduce Two-Dimensional Quantization (Q2D2), a quantization scheme in which feature pairs are projected 
-    onto structured 2D grids—such as hexagonal, rhombic, or rectangular tiling—and quantized to the nearest grid values, yielding 
-    an implicit codebook defined by the product of grid levels, with codebook sizes comparable to conventional methods. Despite its 
-    simple geometric formulation, Q2D2 improves audio compression efficiency, with low token rates and high codebook utilization 
-    while maintaining state-of-the-art (SOTA) reconstruction quality. Specifically, Q2D2 achieves competitive to superior 
-    performance in various objective and subjective reconstruction metrics, across extensive experiments in speech domain 
-    compared to SOTA models. Comprehensive ablation studies further confirm the effectiveness of our design choices.
+    Recent neural audio codecs have achieved impressive reconstruction quality, typically relying on
+	quantization methods such as Residual Vector Quantization (RVQ), Vector Quantization (VQ) and Finite
+	Scalar Quantization (FSQ). However, these quantization techniques limit the geometric structure of the
+	latent space, make it harder to capture correlations between features leading to inefficiency in
+	representation learning, codebook utilization and token rate. In this paper we introduce Two-Dimensional
+	Quantization (Q2D2), a quantization scheme in which feature pairs are projected onto structured 2D grids,
+	such as hexagonal, rhombic, or rectangular tiling and quantized to the nearest grid values, yielding an implicit
+	codebook defined by the product of grid levels, with codebook sizes comparable to conventional methods.
+	Despite its simple geometric formulation, Q2D2 improves audio compression efficiency, with low token rates and
+	high codebook utilization while maintaining state of the art reconstruction quality. Specifically, Q2D2 achieves 
+	competitive to superior performance in various objective and subjective reconstruction metrics, across
+	extensive experiments inspeech, audio and music domains compared to state of the art models. Comprehensive
+	ablation studies further confirm the effectiveness of our design choices.
   </p>
   <div style="text-align:center; margin:20px 0;">
     <img src="figures/Q2D2_diagram.PNG"
