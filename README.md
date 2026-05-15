@@ -9,9 +9,8 @@ Two-dimensional quantization for geometry-aware audio coding
 
 
 
-### 🎉🎉 with WavTokenizer, you can represent speech, music, and audio with only 40 tokens per second!
-### 🎉🎉 with WavTokenizer, You can get strong reconstruction results.
-### 🎉🎉 WavTokenizer owns rich semantic information and is build for audio language models such as GPT-4o.
+### 🎉🎉 with Q2D2, you can represent speech, music, and audio with only 75 tokens per second!
+### 🎉🎉 with Q2D2, You can get strong reconstruction results.
 
 <!--
 # Tips
