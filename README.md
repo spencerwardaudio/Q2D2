@@ -23,11 +23,11 @@ Two-dimensional quantization for geometry-aware audio coding
 
 ## Installation
 
-To use WavTokenizer, install it using:
+To use Q2D2, install it using:
 
 ```bash
-conda create -n wavtokenizer python=3.9
-conda activate wavtokenizer
+conda create -n Q2D2 python=3.9
+conda activate Q2D2
 pip install -r requirements.txt
 ```
 
