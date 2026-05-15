@@ -18,7 +18,7 @@ Two-dimensional quantization for geometry-aware audio coding
 - *2026.05.16*: We update Q2D2 camera ready version for ICLR 2026 on arxiv.
 - *2026.12.01*: We release WavTokenizer on arxiv.
 
-![result](result.png)
+![result](compare_utmos.png)
 
 
 ## Installation
