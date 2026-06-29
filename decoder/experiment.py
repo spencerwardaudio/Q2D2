@@ -419,9 +419,9 @@ class VocosExp(pl.LightningModule):
                         # Reshape for Q2D2: [B, D, T] -> [B, T, D]
                         features_for_vq = features.permute(0, 2, 1)
                         
-                        # Get quantized codes
-                        _, codes, _ = quantizer.quantizer(features_for_vq)
-                        # codes shape: [B, T] or [B, T, n_pairs]
+                        # Get quantized result from Q2D2
+                        result = quantizer.infer(features_for_vq, frame_rate=75)  # 24kHz audio, ~75 Hz latent rate
+                        codes = result.codes  # Shape depends on quantizer type
                         
                         if codes.dim() == 3:  # [B, T, n_pairs]
                             n_pairs = codes.shape[-1]
