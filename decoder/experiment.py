@@ -390,6 +390,71 @@ class VocosExp(pl.LightningModule):
         if self.hparams.decay_mel_coeff:
             self.mel_loss_coeff = self.base_mel_coeff * mel_loss_coeff_decay(self.global_step + 1)
 
+    def on_train_epoch_end(self):
+        """Detect representation collapse by checking encoder variance and per-pair entropy."""
+        if not hasattr(self, '_collapse_check_done'):
+            self._collapse_check_done = True
+            
+            # Sample a small batch from training data for collapse detection
+            try:
+                dataloader = self.trainer.train_dataloader
+                batch = next(iter(dataloader))
+                if isinstance(batch, (list, tuple)):
+                    audio_input = batch[0][:8].to(self.device)  # Take first 8 samples
+                else:
+                    audio_input = batch[:8].to(self.device)
+                
+                with torch.no_grad():
+                    # Extract encoder features before quantization
+                    features = self.feature_extractor.encodec.encoder(audio_input)
+                    
+                    # 1. Encoder output variance (before tanh)
+                    encoder_variance = features.var().item()
+                    self.log('train/encoder_variance', encoder_variance, on_epoch=True)
+                    
+                    # 2. Per-pair assignment entropy
+                    # Get quantizer codes for the features
+                    if hasattr(self.feature_extractor, 'encodec') and hasattr(self.feature_extractor.encodec, 'quantizer'):
+                        quantizer = self.feature_extractor.encodec.quantizer
+                        # Reshape for Q2D2: [B, D, T] -> [B, T, D]
+                        features_for_vq = features.permute(0, 2, 1)
+                        
+                        # Get quantized codes
+                        _, codes, _ = quantizer.quantizer(features_for_vq)
+                        # codes shape: [B, T] or [B, T, n_pairs]
+                        
+                        if codes.dim() == 3:  # [B, T, n_pairs]
+                            n_pairs = codes.shape[-1]
+                            pair_entropies = []
+                            
+                            for pair_idx in range(n_pairs):
+                                pair_codes = codes[:, :, pair_idx].flatten()
+                                # Calculate empirical distribution
+                                unique_codes, counts = torch.unique(pair_codes, return_counts=True)
+                                probs = counts.float() / counts.sum()
+                                # Entropy: -sum(p * log(p))
+                                entropy = -(probs * torch.log(probs + 1e-10)).sum().item()
+                                pair_entropies.append(entropy)
+                            
+                            mean_entropy = np.mean(pair_entropies)
+                            min_entropy = np.min(pair_entropies)
+                            std_entropy = np.std(pair_entropies)
+                            
+                            self.log('train/mean_pair_entropy', mean_entropy, on_epoch=True)
+                            self.log('train/min_pair_entropy', min_entropy, on_epoch=True)
+                            self.log('train/pair_entropy_std', std_entropy, on_epoch=True)
+                        else:  # Single codebook case
+                            unique_codes, counts = torch.unique(codes.flatten(), return_counts=True)
+                            probs = counts.float() / counts.sum()
+                            entropy = -(probs * torch.log(probs + 1e-10)).sum().item()
+                            self.log('train/codebook_entropy', entropy, on_epoch=True)
+                            
+            except Exception as e:
+                print(f"Collapse detection failed: {e}")
+        
+        # Reset flag for next epoch
+        self._collapse_check_done = False
+
 
 class WavTokenizer(VocosExp):
     """

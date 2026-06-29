@@ -75,9 +75,14 @@ model:
 
 trainer:
   logger:
-    class_path: pytorch_lightning.loggers.TensorBoardLogger
-    init_args:
-      save_dir: ./outputs/
+    - class_path: pytorch_lightning.loggers.TensorBoardLogger
+      init_args:
+        save_dir: ./outputs/
+    - class_path: pytorch_lightning.loggers.WandbLogger
+      init_args:
+        project: Q2D2-FSD50K
+        name: Q2D2_fsd50k_9.8kbps_dim512_attn_b16
+        save_dir: ./outputs/
   callbacks:
     - class_path: pytorch_lightning.callbacks.LearningRateMonitor
     - class_path: pytorch_lightning.callbacks.ModelSummary
