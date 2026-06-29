@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+venv_q2d2/
+data/
+outputs/
+safety_run_*.log
+.ipynb_checkpoints/
