@@ -208,3 +208,26 @@ class VectorQuantizer(nn.Module):
         """
         quantized = self.quantizer.to_features(codes)
         return quantized
+
+    def encode_pairs(self, x: torch.Tensor) -> torch.Tensor:
+        """Encode and return per-pair grid indices for all stages.
+        
+        For Q2D2 with n_q=1, returns shape [1, n_pairs, B, T].
+        
+        Args:
+            x: Input features [B, D, T]
+        
+        Returns:
+            Pair indices [n_q=1, n_pairs, B, T]
+        """
+        # Rearrange to [B, T, D] for Q2D2
+        x = x.transpose(1, 2)  # [B, D, T] → [B, T, D]
+        
+        # Get pair indices from Q2D quantizer
+        # quantizer is VQEmbed, .vq is Q2D
+        pair_indices = self.quantizer.vq.encode_pairs(x)  # [B, T, n_pairs]
+        
+        # Wrap in stage dimension and rearrange to [1, n_pairs, B, T]
+        pair_indices = pair_indices.permute(2, 0, 1).unsqueeze(0)  # [1, n_pairs, B, T]
+        
+        return pair_indices

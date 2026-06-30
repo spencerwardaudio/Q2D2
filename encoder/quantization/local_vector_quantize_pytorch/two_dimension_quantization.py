@@ -489,3 +489,24 @@ class Q2D(Module):
         # return quantized output and indices
 
         return out, indices
+
+    def encode_pairs(self, z: torch.Tensor) -> torch.Tensor:
+        """Return per-pair grid indices instead of flattened global indices.
+        
+        Args:
+            z: Input [B, T, D]
+        
+        Returns:
+            nearest: Per-pair indices [B, T, n_pairs]
+        """
+        z = self.project_in(z)
+        z = rearrange(z, 'b n (c d) -> b n c d', c=self.num_codebooks)
+        
+        with torch.no_grad():
+            orig_dtype = z.dtype
+            if self.force_quantization_f32 and orig_dtype not in self.allowed_dtypes:
+                z = z.float()
+            
+            _, nearest = self.quantize(z)  # nearest is [B, T, n_pairs]
+            
+        return nearest.to(torch.long)
