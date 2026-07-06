@@ -510,3 +510,63 @@ class Q2D(Module):
             _, nearest = self.quantize(z)  # nearest is [B, T, n_pairs]
             
         return nearest.to(torch.long)
+    
+    def quantize_single_pair(self, z: torch.Tensor, pair_idx: int) -> torch.Tensor:
+        """Quantize only a single grid pair, zero out all others.
+        
+        For Jacobian topology analysis: isolates each grid pair's independent
+        contribution to the reconstruction manifold.
+        
+        Args:
+            z: Input features [B, T, D]
+            pair_idx: Which pair to quantize (0 to n_pairs-1)
+        
+        Returns:
+            z_codes: Quantized tensor with only pair_idx quantized, others zeroed
+        """
+        shape, device = z.shape, z.device
+        preserve_symmetry = self.preserve_symmetry
+        half_width = (self._levels // 2)
+        
+        # Project in
+        z = self.project_in(z)
+        z = rearrange(z, 'b n (c d) -> b n c d', c=self.num_codebooks)
+        
+        # Apply bounding function
+        bound_fn = self.symmetry_preserving_bound if preserve_symmetry else self.bound
+        bounded_z = bound_fn(z)
+        
+        # Split into pairs
+        z_pairs = bounded_z.reshape(*bounded_z.shape[:-1], -1, 2)  # [B, N, C, P, 2]
+        
+        # Quantize only the specified pair
+        pair_to_quantize = z_pairs[..., pair_idx, :].contiguous()  # [B, N, C, 2]
+        grid_i = self.tile_grid[pair_idx].to(device)  # [G_i, 2]
+        
+        # Flatten for distance computation
+        prefix_shape = pair_to_quantize.shape[:-1]
+        pair_flat = pair_to_quantize.reshape(-1, 2)  # [B*N*C, 2]
+        
+        # Nearest neighbor lookup
+        dists = torch.cdist(pair_flat.unsqueeze(1), grid_i.unsqueeze(0))  # [B*N*C, 1, G_i]
+        nearest_idx = dists.argmin(dim=-1).squeeze(1)  # [B*N*C]
+        quantized_pair = grid_i[nearest_idx]  # [B*N*C, 2]
+        
+        # Reshape back
+        quantized_pair = quantized_pair.view(*prefix_shape, 2)  # [B, N, C, 2]
+        
+        # Create output with all pairs zeroed except the target
+        z_pairs_out = torch.zeros_like(z_pairs)
+        z_pairs_out[..., pair_idx, :] = quantized_pair
+        
+        # Reshape back to original feature dimension
+        bounded_z_out = z_pairs_out.reshape_as(bounded_z)
+        
+        # Apply STE (straight-through estimator)
+        z_codes = ste(z, bounded_z_out) / half_width
+        z_codes = rearrange(z_codes, 'b n c d -> b n (c d)')
+        
+        # Project out
+        out = self.project_out(z_codes)
+        
+        return out
