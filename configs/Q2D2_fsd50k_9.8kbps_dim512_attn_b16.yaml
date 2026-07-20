@@ -99,6 +99,7 @@ trainer:
   # Lightning calculates max_steps across all optimizer steps (rather than number of batches)
   # This equals to 1M steps per generator and 1M per discriminator
   max_steps: -1
+  max_epochs: 50  # Added for consistency with other models (50 epochs)
   # For dropping VRAM consumption
   accumulate_grad_batches: 2
   # You might want to limit val batches when evaluating all the metrics, as they are time-consuming
