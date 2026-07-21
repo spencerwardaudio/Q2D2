@@ -6,6 +6,17 @@ import torch
 import torchaudio
 import transformers
 import yaml
+from torch.optim.lr_scheduler import LambdaLR
+
+
+def _cosine_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps, last_epoch=-1):
+    """Drop-in replacement for transformers.get_cosine_schedule_with_warmup."""
+    def lr_lambda(current_step):
+        if current_step < num_warmup_steps:
+            return float(current_step) / float(max(1, num_warmup_steps))
+        progress = float(current_step - num_warmup_steps) / float(max(1, num_training_steps - num_warmup_steps))
+        return max(0.0, 0.5 * (1.0 + math.cos(math.pi * progress)))
+    return LambdaLR(optimizer, lr_lambda, last_epoch)
 
 from decoder.discriminator_dac import DACDiscriminator
 
@@ -101,10 +112,10 @@ class VocosExp(pl.LightningModule):
         opt_gen = torch.optim.AdamW(gen_params, lr=self.hparams.initial_learning_rate)
 
         max_steps = self.trainer.max_steps // 2  # Max steps per optimizer
-        scheduler_disc = transformers.get_cosine_schedule_with_warmup(
+        scheduler_disc = _cosine_schedule_with_warmup(
             opt_disc, num_warmup_steps=self.hparams.num_warmup_steps, num_training_steps=max_steps,
         )
-        scheduler_gen = transformers.get_cosine_schedule_with_warmup(
+        scheduler_gen = _cosine_schedule_with_warmup(
             opt_gen, num_warmup_steps=self.hparams.num_warmup_steps, num_training_steps=max_steps,
         )
 
