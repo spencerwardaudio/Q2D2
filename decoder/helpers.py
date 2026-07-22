@@ -10,6 +10,7 @@ matplotlib.use("Agg")
 def save_figure_to_numpy(fig: plt.Figure) -> np.ndarray:
     """
     Save a matplotlib figure to a numpy array.
+    Compatible with matplotlib 3.8+ (uses buffer_rgba instead of deprecated tostring_rgb).
 
     Args:
         fig (Figure): Matplotlib figure object.
@@ -18,6 +19,7 @@ def save_figure_to_numpy(fig: plt.Figure) -> np.ndarray:
         ndarray: Numpy array representing the figure.
     """
     fig.canvas.draw()
+    # Modern matplotlib API (3.8+)
     buf = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
     data = buf.reshape(fig.canvas.get_width_height()[::-1] + (4,))[:, :, :3]
     return data
