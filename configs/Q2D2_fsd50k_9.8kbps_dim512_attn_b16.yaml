@@ -101,7 +101,7 @@ trainer:
   max_steps: -1
   max_epochs: 50  # Added for consistency with other models (50 epochs)
   check_val_every_n_epoch: 5  # Validate every 5 epochs (reduces overhead)
-  precision: 16-mixed
+  precision: 16
   # Throughput-first on A40
   accumulate_grad_batches: 1
   # Limited training for faster iteration (37% of dataset, Q2D2 approach)
