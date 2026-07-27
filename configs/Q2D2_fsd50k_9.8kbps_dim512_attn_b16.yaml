@@ -80,7 +80,7 @@ trainer:
         save_dir: ./outputs/
     - class_path: pytorch_lightning.loggers.WandbLogger
       init_args:
-        project: codec-fsd50k-test
+        project: codec-fsd50k-scale
         name: Q2D2_fsd50k_9.8kbps_dim512_attn_b16
         save_dir: ./outputs/
   callbacks:
