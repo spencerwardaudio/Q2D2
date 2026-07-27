@@ -88,6 +88,28 @@ class VocosExp(pl.LightningModule):
 
         self.train_discriminator = False
         self.base_mel_coeff = self.mel_loss_coeff = mel_loss_coeff
+        self._wandb_epoch_metric_configured = False
+
+    def on_fit_start(self):
+        """Configure W&B charts to use epoch as the canonical x-axis."""
+        if self._wandb_epoch_metric_configured:
+            return
+
+        trainer = getattr(self, "trainer", None)
+        if trainer is None:
+            return
+
+        for logger in getattr(trainer, "loggers", []):
+            experiment = getattr(logger, "experiment", None)
+            if experiment is None or not hasattr(experiment, "define_metric"):
+                continue
+            experiment.define_metric("epoch")
+            experiment.define_metric("train/*", step_metric="epoch")
+            experiment.define_metric("generator/*", step_metric="epoch")
+            experiment.define_metric("discriminator/*", step_metric="epoch")
+            experiment.define_metric("val/*", step_metric="epoch")
+
+        self._wandb_epoch_metric_configured = True
 
     def configure_optimizers(self):
         disc_params = [
@@ -371,6 +393,9 @@ class VocosExp(pl.LightningModule):
             self.train_discriminator = False
 
     def on_train_batch_end(self, *args):
+        # Log epoch every step so W&B can use it as x-axis for step-logged metrics.
+        self.log("epoch", float(self.current_epoch), on_step=True, on_epoch=False, logger=True)
+
         def mel_loss_coeff_decay(current_step, num_cycles=0.5):
             max_steps = self.trainer.max_steps // 2
             if current_step < self.hparams.num_warmup_steps:
