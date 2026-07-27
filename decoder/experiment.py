@@ -18,13 +18,11 @@ def _cosine_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps
         return max(0.0, 0.5 * (1.0 + math.cos(math.pi * progress)))
     return LambdaLR(optimizer, lr_lambda, last_epoch)
 
-from decoder.discriminator_dac import DACDiscriminator
-
 from decoder.discriminators import MultiPeriodDiscriminator, MultiResolutionDiscriminator
 from decoder.feature_extractors import FeatureExtractor
 from decoder.heads import FourierHead
 from decoder.helpers import plot_spectrogram_to_numpy
-from decoder.loss import DiscriminatorLoss, GeneratorLoss, FeatureMatchingLoss, MelSpecReconstructionLoss, DACGANLoss
+from decoder.loss import DiscriminatorLoss, GeneratorLoss, FeatureMatchingLoss, MelSpecReconstructionLoss
 from decoder.models import Backbone
 from decoder.modules import safe_log
 from decoder.pretrained_model import instantiate_class
@@ -83,11 +81,6 @@ class VocosExp(pl.LightningModule):
         self.multiperioddisc = MultiPeriodDiscriminator()
         self.multiresddisc = MultiResolutionDiscriminator()
 
-        
-        self.dac = DACDiscriminator()
-
-        self.dacdiscriminator = DACGANLoss(self.dac)
-
         self.disc_loss = DiscriminatorLoss()
         self.gen_loss = GeneratorLoss()
         self.feat_matching_loss = FeatureMatchingLoss()
@@ -100,7 +93,6 @@ class VocosExp(pl.LightningModule):
         disc_params = [
             {"params": self.multiperioddisc.parameters()},
             {"params": self.multiresddisc.parameters()},
-            {"params": self.dac.parameters()},
         ]
         gen_params = [
             {"params": self.feature_extractor.parameters()},
@@ -139,9 +131,6 @@ class VocosExp(pl.LightningModule):
             with torch.no_grad():
                 audio_hat, _ = self(audio_input, **kwargs)
 
-
-            loss_dac=self.dacdiscriminator.discriminator_loss(audio_hat.unsqueeze(1),audio_input.unsqueeze(1))
-
             real_score_mp, gen_score_mp, _, _ = self.multiperioddisc(y=audio_input, y_hat=audio_hat, **kwargs,)
             real_score_mrd, gen_score_mrd, _, _ = self.multiresddisc(y=audio_input, y_hat=audio_hat, **kwargs,)
             loss_mp, loss_mp_real, _ = self.disc_loss(
@@ -152,20 +141,17 @@ class VocosExp(pl.LightningModule):
             )
             loss_mp /= len(loss_mp_real)
             loss_mrd /= len(loss_mrd_real)
-            loss = loss_mp + self.hparams.mrd_loss_coeff * loss_mrd + loss_dac
+            loss = loss_mp + self.hparams.mrd_loss_coeff * loss_mrd
 
             self.log("discriminator/total", loss, prog_bar=True)
             self.log("discriminator/multi_period_loss", loss_mp)
             self.log("discriminator/multi_res_loss", loss_mrd)
-            self.log("discriminator/dac", loss_dac)
             return loss
 
         # train generator
         if optimizer_idx == 1:
             audio_hat, commit_loss = self(audio_input, **kwargs)
             if self.train_discriminator:
-
-                loss_dac_1,loss_dac_2 = self.dacdiscriminator.generator_loss(audio_hat.unsqueeze(1),audio_input.unsqueeze(1))
                 _, gen_score_mp, fmap_rs_mp, fmap_gs_mp = self.multiperioddisc(
                     y=audio_input, y_hat=audio_hat, **kwargs,
                 )
@@ -183,8 +169,6 @@ class VocosExp(pl.LightningModule):
                 self.log("generator/multi_res_loss", loss_gen_mrd)
                 self.log("generator/feature_matching_mp", loss_fm_mp)
                 self.log("generator/feature_matching_mrd", loss_fm_mrd)
-                self.log("generator/loss_dac_1", loss_dac_1)
-                self.log("generator/loss_dac_2", loss_dac_2)
             else:
                 loss_gen_mp = loss_gen_mrd = loss_fm_mp = loss_fm_mrd = 0
 
@@ -196,8 +180,6 @@ class VocosExp(pl.LightningModule):
                 + self.hparams.mrd_loss_coeff * loss_fm_mrd
                 + self.mel_loss_coeff * mel_loss
                 + 1000 * commit_loss
-                + loss_dac_1
-                + loss_dac_2
             )
 
             self.log("generator/total_loss", loss, prog_bar=True)
@@ -522,7 +504,6 @@ class WavTokenizer(VocosExp):
         #     VocosExp.load_from_checkpoint(self.resume_model)
         self.multiperioddisc = MultiPeriodDiscriminator(num_embeddings=len(self.feature_extractor.bandwidths))
         self.multiresddisc = MultiResolutionDiscriminator(num_embeddings=len(self.feature_extractor.bandwidths))
-        self.dac = DACDiscriminator()
         if self.resume:
             print('resume model:', self.resume_model)
             # with open(self.resume_config, "r") as f:
@@ -539,7 +520,6 @@ class WavTokenizer(VocosExp):
             state_dict_hd = dict()
             state_dict_mp = dict()
             state_dict_mr = dict()
-            state_dict_dac = dict()
             for k, v in state_dict_raw.items():
                 # breakpoint()
                 if k.startswith('feature_extractor.encodec.quantizer'):
@@ -563,8 +543,6 @@ class WavTokenizer(VocosExp):
                     state_dict_mp[k[16:]] = v
                 if k.startswith('multiresddisc.'):
                     state_dict_mr[k[14:]] = v
-                if k.startswith('dac.'):
-                    state_dict_dac[k[4:]] = v
             # breakpoint()
             # feature_extractor.encodec.quantizer.load_state_dict(state_dict_fa_qa, strict=True)
             feature_extractor.encodec.encoder.load_state_dict(state_dict_fa_en, strict=True)
@@ -578,7 +556,6 @@ class WavTokenizer(VocosExp):
             self.head = head.to(self.device)
             self.multiperioddisc.load_state_dict(state_dict_mp, strict=True)
             self.multiresddisc.load_state_dict(state_dict_mr, strict=True)
-            self.dac.load_state_dict(state_dict_dac, strict=True)
 
     def training_step(self, *args):
         # print('-------------------train--------------------')
