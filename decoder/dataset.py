@@ -17,6 +17,14 @@ if str(_PROJ_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJ_ROOT))
 
 from dataloader_aug.audio_preprocessing import normalize_rms_snr
+from dataloader_aug.dataset_paths import get_dataset_config
+
+# Validate dataset paths on module load
+_dataset_config = get_dataset_config()
+assert _dataset_config.q2d2_train.exists(), \
+    f"❌ Q2D2 training filelist missing: {_dataset_config.q2d2_train}"
+assert _dataset_config.q2d2_val.exists(), \
+    f"❌ Q2D2 validation filelist missing: {_dataset_config.q2d2_val}"
 
 torch.set_num_threads(1)
 
@@ -80,7 +88,9 @@ class VocosDataset(Dataset):
             y,
             target_snr_db=40.0,
             train_mode=self.train,
-            snr_variation_db=5.0
+            snr_variation_db=5.0,
+            audio_path=audio_path,
+            source_identifier="Q2D2/VocosDataset"
         )
         
         if sr != self.sampling_rate:
