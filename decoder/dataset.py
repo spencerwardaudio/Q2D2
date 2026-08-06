@@ -67,6 +67,12 @@ class VocosDataset(Dataset):
         self.train = train
 
     def __len__(self) -> int:
+        # Sample-level cap via env — matches HiFiCodec/SpeechTokenizer/Encodec/DAC-FSQ
+        import os
+        env_key = "VAL_N_SAMPLES" if not self.train else "TRAIN_N_SAMPLES"
+        n = int(os.getenv(env_key, 0))
+        if n > 0:
+            return min(len(self.filelist), n)
         return len(self.filelist)
 
     def __getitem__(self, index: int) -> torch.Tensor:
@@ -83,16 +89,15 @@ class VocosDataset(Dataset):
             # mix to mono
             y = y.mean(dim=-1, keepdim=False)
         
-        # COMMENTED OUT: RMS/SNR normalization produces excessive console spam
-        # and Q2D2 trains successfully without it. Re-enable if needed for stability.
-        # y = normalize_rms_snr(
-        #     y,
-        #     target_snr_db=40.0,
-        #     train_mode=self.train,
-        #     snr_variation_db=5.0,
-        #     audio_path=audio_path,
-        #     source_identifier="Q2D2/VocosDataset"
-        # )
+        # Unified RMS/SNR normalization — consistent across all 5 codecs
+        y = normalize_rms_snr(
+            y,
+            target_snr_db=40.0,
+            train_mode=self.train,
+            snr_variation_db=5.0,
+            audio_path=audio_path,
+            source_identifier="Q2D2/VocosDataset"
+        )
         
         if sr != self.sampling_rate:
             y = torchaudio.functional.resample(y, orig_freq=sr, new_freq=self.sampling_rate)

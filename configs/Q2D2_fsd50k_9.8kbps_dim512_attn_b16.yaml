@@ -104,9 +104,7 @@ trainer:
   precision: 16
   # Throughput-first on A40
   accumulate_grad_batches: 1
-  # Limited training for faster iteration (37% of dataset, Q2D2 approach)
-  limit_train_batches: 1000  # 12,000 samples with batch_size=12
-  limit_val_batches: 50      # ~300 samples with batch_size=6
+  # Sample-level limiting handled by VocosDataset via TRAIN_N_SAMPLES env
   accelerator: gpu
   devices: 1
   num_nodes: 1
