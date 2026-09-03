@@ -209,7 +209,11 @@ class VocosExp(pl.LightningModule):
             self.log("generator/mel_loss", mel_loss)
             self.log("commit_loss", commit_loss)
 
-            if self.global_step % 1000 == 0 and self.global_rank == 0:
+            if (
+                self.global_step % 1000 == 0
+                and self.global_rank == 0
+                and hasattr(self.logger.experiment, "add_audio")
+            ):
                 self.logger.experiment.add_audio(
                     "train/audio_in", audio_input[0].data.cpu(), self.global_step, self.hparams.sample_rate
                 )
@@ -329,7 +333,7 @@ class VocosExp(pl.LightningModule):
         }
 
     def validation_epoch_end(self, outputs):
-        if self.global_rank == 0:
+        if self.global_rank == 0 and hasattr(self.logger.experiment, "add_audio"):
             *_, audio_in, audio_pred = outputs[0].values()
             self.logger.experiment.add_audio(
                 "val_in", audio_in.data.cpu().numpy(), self.global_step, self.hparams.sample_rate
@@ -600,7 +604,7 @@ class WavTokenizer(VocosExp):
         return output
 
     def validation_epoch_end(self, outputs):
-        if self.global_rank == 0:
+        if self.global_rank == 0 and hasattr(self.logger.experiment, "add_audio"):
             *_, audio_in, _ = outputs[0].values()
             # Resynthesis with encodec for reference
             self.feature_extractor.encodec.set_target_bandwidth(self.feature_extractor.bandwidths[0])
